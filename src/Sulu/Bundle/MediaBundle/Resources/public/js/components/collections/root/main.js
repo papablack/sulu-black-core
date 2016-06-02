@@ -163,10 +163,10 @@ define([
                 {
                     el: this.$find(constants.datagridSelector),
                     url: '/admin/api/media?orderBy=media.created&orderSort=desc&locale=' + UserSettingsManager.getMediaLocale(),
+                    searchFields: ['name', 'title', 'description'],
                     view: UserSettingsManager.getMediaListView(),
                     pagination: UserSettingsManager.getMediaListPagination(),
                     resultKey: 'media',
-                    sortable: false,
                     actionCallback: this.actionCallback.bind(this),
                     viewOptions: {
                         table: {
@@ -175,6 +175,18 @@ define([
                             noImgIcon: function(item) {
                                 return FileIcons.getByMimeType(item.mimeType);
                             },
+                            badges: [
+                                {
+                                    column: 'title',
+                                    callback: function(item, badge) {
+                                        if (item.locale !== UserSettingsManager.getMediaLocale()) {
+                                            badge.title = item.locale;
+
+                                            return badge;
+                                        }
+                                    }.bind(this)
+                                }
+                            ],
                             emptyIcon: 'fa-file-o'
                         },
                         'datagrid/decorators/masonry-view': {
@@ -182,7 +194,8 @@ define([
                             noImgIcon: function(item) {
                                 return FileIcons.getByMimeType(item.mimeType);
                             },
-                            emptyIcon: 'fa-file-o'
+                            emptyIcon: 'fa-file-o',
+                            locale: UserSettingsManager.getMediaLocale()
                         }
                     },
                     paginationOptions: {

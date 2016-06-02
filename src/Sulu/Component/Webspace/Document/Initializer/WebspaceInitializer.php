@@ -64,9 +64,13 @@ class WebspaceInitializer implements InitializerInterface
         $this->nodeManager = $nodeManager;
     }
 
+    /**
+     * {@inheritdoc}
+     */
     public function initialize(OutputInterface $output)
     {
-        foreach ($this->webspaceManager->getWebspaceCollection() as $webspace) {
+        $webspaces = $this->webspaceManager->getWebspaceCollection();
+        foreach ($webspaces as $webspace) {
             $this->initializeWebspace($output, $webspace);
         }
 
@@ -83,7 +87,7 @@ class WebspaceInitializer implements InitializerInterface
             $webspaceLocales[] = $localization->getLocalization();
         }
 
-        $homeType = $webspace->getTheme()->getDefaultTemplate('homepage');
+        $homeType = $webspace->getTheme()->getDefaultTemplate('home');
         if ($this->nodeManager->has($homePath)) {
             $homeDocument = $this->documentManager->find($homePath, 'fr', [
                 'load_ghost_content' => false,

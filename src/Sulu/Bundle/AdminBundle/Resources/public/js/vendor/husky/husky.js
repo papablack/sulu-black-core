@@ -36242,8 +36242,19 @@ define('__component__$tabs@husky',[],function() {
         },
 
         /**
+         * used to update the tab-component.
+         * @event husky.tabs.initialized
+         * @param {Number} visibleTabs object
+         */
+        UPDATED = function() {
+            return this.createEventName('updated');
+        },
+
+        /**
          * triggered when component was initialized
          * @event husky.tabs.initialized
+         * @param {Object} selectedItem
+         * @param {Number} visibleTabs
          */
         INITIALIZED = function() {
             return this.createEventName('initialized');
@@ -36314,6 +36325,7 @@ define('__component__$tabs@husky',[],function() {
         },
 
         update = function(values) {
+            var visibleTabs = 0;
             this.sandbox.util.foreach(this.data, function(item) {
                 var $item = this.$find('li[data-id="' + item.id + '"]');
 
@@ -36321,8 +36333,17 @@ define('__component__$tabs@husky',[],function() {
                     this.sandbox.dom.hide($item);
                 } else {
                     this.sandbox.dom.show($item);
+                    ++visibleTabs;
                 }
             }.bind(this));
+
+            if (visibleTabs >= 2) {
+                this.$el.show();
+            } else {
+                this.$el.hide();
+            }
+
+            this.sandbox.emit(UPDATED.call(this), visibleTabs);
 
             setMarker.call(this);
         },
@@ -36484,6 +36505,7 @@ define('__component__$tabs@husky',[],function() {
             this.items = [];
             this.domItems = {};
 
+            var visibleTabs = 0;
             this.sandbox.util.foreach(this.data, function(item, index) {
                 this.items[item.id] = item;
                 $item = this.sandbox.dom.createElement(
@@ -36495,6 +36517,9 @@ define('__component__$tabs@husky',[],function() {
                     || (!!item.displayConditions && !this.evaluate(item.displayConditions, values))
                 ) {
                     this.sandbox.dom.hide($item);
+                } else {
+                    // count only visible items
+                    ++visibleTabs;
                 }
 
                 // set min-width of element
@@ -36520,7 +36545,11 @@ define('__component__$tabs@husky',[],function() {
             setMarker.call(this);
 
             // initialization finished
-            this.sandbox.emit(INITIALIZED.call(this), selectedItem);
+            this.sandbox.emit(INITIALIZED.call(this), selectedItem, visibleTabs);
+
+            if (visibleTabs < 2) {
+                this.$el.hide();
+            }
         }
     };
 });
@@ -36881,7 +36910,15 @@ define('__component__$toolbar@husky',[],function() {
                         this.items[button].dropdownItems = items;
                         createDropdownMenu.call(this, this.items[button].$el, this.items[button]);
                         if (!!itemId) {
-                            this.sandbox.emit(ITEM_CHANGE.call(this), this.items[button].id, itemId);
+                            changeButton.call(this, this.items[button].id, itemId).then(function(item) {
+                                if (!this.items[button].dropdownOptions
+                                    || typeof this.items[button].dropdownOptions.preSelectedCallback !== 'function'
+                                ) {
+                                    return;
+                                }
+
+                                this.items[button].dropdownOptions.preSelectedCallback(item);
+                            }.bind(this));
                         }
                     } else {
                         deleteDropdown.call(this, this.items[button]);
@@ -36904,11 +36941,16 @@ define('__component__$toolbar@husky',[],function() {
                 return;
             }
 
-            var button = this.items[buttonId];
+            var button = this.items[buttonId],
+                deferred = $.Deferred();
 
             button.initialized.then(function() {
                 // update icon
                 var index = getItemIndexById.call(this, itemId, button);
+                if (index === true) {
+                    index = 0;
+                }
+
                 changeMainListItem.call(this, button.$el, button.dropdownItems[index]);
                 this.sandbox.emit(ITEM_MARK.call(this), button.dropdownItems[index].id);
                 if (executeCallback === true || !!button.dropdownItems[index].callback
@@ -36916,7 +36958,11 @@ define('__component__$toolbar@husky',[],function() {
                 ) {
                     button.dropdownItems[index].callback();
                 }
+
+                deferred.resolve(button.dropdownItems[index]);
             }.bind(this));
+
+            return deferred.promise();
         },
 
         /**
@@ -39578,6 +39624,7 @@ define('__component__$dependent-select@husky',[],function() {
  * @param {Boolean} [options.isNative] should use native select
  * @param {Boolean} [options.showToolTip] Show tool-tip on hover - only works for single-selects
  * @param {Array} [options.defaultValue] Array of default items that should be selected if no item has been preselected
+ * @param {Number} [options.dropdownPadding] The amount of padding on top or bottom of the dropdown list
  */
 
 define('__component__$select@husky',[], function() {
@@ -39615,7 +39662,8 @@ define('__component__$select@husky',[], function() {
             showToolTip: false,
             translations: translations,
             isNative: false,
-            defaultValue: null
+            defaultValue: null,
+            dropdownPadding: 0,
         },
 
         constants = {
@@ -40726,24 +40774,30 @@ define('__component__$select@husky',[], function() {
                 return;
             }
 
-            this.sandbox.logger.log('show dropdown ' + this.options.instanceName);
             this.sandbox.dom.removeClass(this.$dropdownContainer, 'hidden');
             this.sandbox.dom.on(this.sandbox.dom.window, 'click.dropdown.' + this.options.instanceName, this.hideDropDown.bind(this));
             this.dropdownVisible = true;
 
             this.sandbox.dom.removeClass(this.$dropdownContainer, constants.dropdownTopClass);
-            var ddHeight = this.sandbox.dom.height(this.$dropdownContainer),
-                ddTop = this.sandbox.dom.offset(this.$dropdownContainer).top,
+            var dropdownHeight = this.sandbox.dom.height(this.$dropdownContainer),
+                dropdownTop = this.sandbox.dom.offset(this.$dropdownContainer).top,
                 windowHeight = this.sandbox.dom.height(this.sandbox.dom.window),
-                scrollTop = this.sandbox.dom.scrollTop(this.sandbox.dom.window);
+                scrollTop = this.sandbox.dom.scrollTop(this.sandbox.dom.window),
+                dropdownMaxHeight = windowHeight - dropdownTop;
+
             if (this.options.direction === 'top') {
                 this.sandbox.dom.addClass(this.$dropdownContainer, constants.dropdownTopClass);
-            } else if (this.options.direction !== 'bottom') {
-                // check if dropdown container overlaps bottom of browser
-                if (ddHeight + ddTop > windowHeight + scrollTop) {
-                    this.sandbox.dom.addClass(this.$dropdownContainer, constants.dropdownTopClass);
-                }
+            } else if (
+                this.options.direction !== 'bottom'
+                && dropdownHeight + dropdownTop > windowHeight + scrollTop
+                // only change direction if there is more space on the other side    
+                && windowHeight / 2 < dropdownTop - scrollTop
+            ) {
+                this.sandbox.dom.addClass(this.$dropdownContainer, constants.dropdownTopClass);
+                dropdownMaxHeight = dropdownHeight + this.$dropdownContainer.offset().top;
             }
+
+            this.$dropdownContainer.css({maxHeight: dropdownMaxHeight - this.options.dropdownPadding + 'px'});
         },
 
         // hide dropDown
@@ -40755,7 +40809,6 @@ define('__component__$select@husky',[], function() {
                     this.sandbox.dom.off(this.sandbox.dom.window, 'click.dropdown.' + this.options.instanceName);
                 }
             }
-            this.sandbox.logger.log('hide dropdown ' + this.options.instanceName);
             this.sandbox.dom.addClass(this.$dropdownContainer, 'hidden');
             this.dropdownVisible = false;
             return true;
@@ -42667,7 +42720,8 @@ define('__component__$ckeditor@husky',[], function() {
             table: true,
             link: true,
             pasteFromWord: true,
-            height: 65
+            height: 65,
+            autoStart: true
         },
 
         /**
@@ -42721,40 +42775,28 @@ define('__component__$ckeditor@husky',[], function() {
          * @returns {Object} configuration object for ckeditor
          */
         getConfig = function() {
-            var config = this.sandbox.util.extend(false, {}, this.options);
+            var config = this.sandbox.util.extend(false, {}, this.options),
+                toolbarBuilder = this.sandbox.ckeditor.getToolbarBuilder();
 
-            if (!config.toolbar) {
-                config.toolbar = [
-                    {name: 'semantics', items: ['Format']},
-                    {name: 'basicstyles', items: ['Superscript', 'Subscript', 'Italic', 'Bold', 'Underline', 'Strike']},
-                    {name: 'blockstyles', items: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock']},
-                    {name: 'list', items: ['NumberedList', 'BulletedList']}
-                ];
+            if (!!config.toolbar) {
+                toolbarBuilder = this.sandbox.ckeditor.createToolbarBuilder(config.toolbar);
             }
 
-            // activate paste from Word
-            if (this.options.pasteFromWord === true) {
-                config.toolbar.push({
-                    name: 'paste',
-                    items: ['PasteFromWord']
-                });
+            // deactivate paste from Word
+            if (!this.options.pasteFromWord === true) {
+                toolbarBuilder.remove('paste', ['PasteFromWord']);
             }
 
-            // activate embed links
-            if (this.options.link === true) {
-                config.toolbar.push({
-                    name: 'links',
-                    items: ['Link', 'Unlink']
-                });
-                config.linkShowTargetTab = false;
+            // deactivate embed links
+            config.linkShowTargetTab = false;
+            if (!this.options.link) {
+                toolbarBuilder.remove('links', ['Link', 'Unlink']);
+                config.linkShowTargetTab = true;
             }
 
             // activate tables
-            if (this.options.table === true) {
-                config.toolbar.push({
-                    name: 'insert',
-                    items: ['Table']
-                });
+            if (!this.options.table) {
+                toolbarBuilder.remove('insert', ['Table']);
             }
 
             // set height
@@ -42777,15 +42819,12 @@ define('__component__$ckeditor@husky',[], function() {
                 config.enterMode = CKEDITOR['ENTER_' + this.options.enterMode.toUpperCase()];
             }
 
-            // Styles
-            if (!!config.stylesSet && config.stylesSet.length > 0) {
-                config.toolbar.push({
-                    name: 'styles',
-                    items: ['Styles']
-                });
+            // deactivate styles
+            if (!config.stylesSet || 0 === config.stylesSet.length) {
+                toolbarBuilder.remove('styles', ['Styles']);
             }
 
-            config.toolbar.push({name: 'code', items: ['Source']});
+            config.toolbar = toolbarBuilder.get();
 
             delete config.initializedCallback;
             delete config.baseUrl;
@@ -42809,29 +42848,40 @@ define('__component__$ckeditor@husky',[], function() {
             this.options = this.sandbox.util.extend(true, {}, defaults, this.options);
             this.editorContent = null;
 
-            this.startEditor();
-            this.data = this.editor.getData();
-
-            this.bindChangeEvents();
-
-            this.editor.on('instanceReady', function() {
-                // bind class to editor
-                this.sandbox.dom.addClass(this.sandbox.dom.find('.cke', this.sandbox.dom.parent(this.$el)), 'form-element');
-                this.sandbox.emit(INITIALIZED.call(this));
-            }.bind(this));
-
-            this.editor.on('blur', function() {
-                this.sandbox.emit(FOCUSOUT.call(this), this.editor.getData(), this.$el);
-            }.bind(this));
+            if (!!this.options.autoStart) {
+                this.startEditor();
+            } else {
+                this.renderStartTemplate();
+            }
 
             this.sandbox.on(START.call(this), this.startEditor.bind(this));
             this.sandbox.on(DESTROY.call(this), this.destroyEditor.bind(this));
         },
 
+        renderStartTemplate: function() {
+            var $content = $(this.$el.val()),
+                text = $content.text(),
+                $trigger = $(
+                    '<textarea class="form-element ckeditor-preview">' + text + '</textarea>'
+                );
+
+            this.$el.parent().append($trigger);
+
+            $trigger.one('click', function(e) {
+                $(e.currentTarget).remove();
+
+                this.startEditor();
+
+                this.editor.once('instanceReady', function() {
+                    this.editor.focus();
+                }.bind(this));
+            }.bind(this));
+        },
+
         /**
          * Binds Events to emit a custom changed event
          */
-        bindChangeEvents: function() {
+        bindEditorEvents: function() {
             this.editor.on('dialogShow', function() {
                 this.sandbox.dom.addClass(this.sandbox.dom.parent('.cke_dialog_ui_button_ok'), 'sulu_ok_button');
                 this.sandbox.dom.addClass(this.sandbox.dom.parent('.cke_dialog_ui_button_cancel'), 'sulu_cancel_button');
@@ -42846,6 +42896,16 @@ define('__component__$ckeditor@husky',[], function() {
                 if (this.data !== this.editor.getData()) {
                     this.emitChangedEvent();
                 }
+            }.bind(this));
+
+            this.editor.on('instanceReady', function() {
+                // bind class to editor
+                this.sandbox.dom.addClass(this.sandbox.dom.find('.cke', this.sandbox.dom.parent(this.$el)), 'form-element');
+                this.sandbox.emit(INITIALIZED.call(this));
+            }.bind(this));
+
+            this.editor.on('blur', function() {
+                this.sandbox.emit(FOCUSOUT.call(this), this.editor.getData(), this.$el);
             }.bind(this));
         },
 
@@ -42864,17 +42924,24 @@ define('__component__$ckeditor@husky',[], function() {
             if (!!this.editorContent) {
                 this.editor.setData(this.editorContent);
             }
+
+            this.data = this.editor.getData();
+            this.bindEditorEvents();
         },
 
         destroyEditor: function() {
             if (!!this.editor) {
                 this.editorContent = this.editor.getData();
-                if (this.editor.window.getFrame()) {
+                if (!!this.editor.window && !!this.editor.window.getFrame()) {
                     this.editor.destroy();
                 } else {
                     delete CKEDITOR.instances[this.editor.name];
                 }
             }
+        },
+
+        destroy: function() {
+            this.destroyEditor();
         }
     };
 
@@ -43578,6 +43645,7 @@ define('__component__$overlay@husky',[], function() {
         renderLanguageChanger: function(slide) {
             var $element = this.sandbox.dom.createElement('<div/>');
 
+            this.sandbox.dom.addClass(this.overlay.$el, 'has-language-chooser');
             this.overlay.slides[slide].$languageChanger = this.sandbox.dom.createElement(
                 '<div class="' + constants.languageChangerClass + '"/>'
             );
@@ -46525,14 +46593,7 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
 
         templates = {
             skeleton: [
-                '<div class="front"',
-                '<% if (items.length > 1) { %>',
-                '     data-aura-component="dropdown@husky"',
-                '     data-aura-trigger=".<%= constants.triggerClass %>"',
-                '     data-aura-instance-name="<%= options.instanceName %>"',
-                '     data-aura-data=\'<%= JSON.stringify(items) %>\'',
-                '<% } %>',
-                '     >',
+                '<div class="front">',
                 '    <a class="<%= constants.schemeClass %> <%= constants.linkClass %> text text-link"',
                 '       href="<%= url %>" target="_blank"><%= data.scheme %></a>',
                 '<% if (items.length > 1) { %>',
@@ -46568,7 +46629,6 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
 
             this.prepareItems(this.options.schemes);
             this.render();
-            this.bindCustomEvents();
             this.bindDomEvents();
         },
 
@@ -46598,6 +46658,17 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
                 data: data,
                 items: this.items
             }));
+
+            this.sandbox.start([{
+                name: 'dropdown@husky',
+                options: {
+                    el: this.$find('.front'),
+                    trigger: this.$find('.' + constants.triggerClass),
+                    instanceName: constants.instanceName,
+                    data: this.items,
+                    clickCallback: this.selectSchemeHandler.bind(this)
+                }
+            }]);
         },
 
         /**
@@ -46663,16 +46734,6 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
             this.$find('.' + constants.specificPartClass).val(data.specificPart);
             this.$find('.' + constants.schemeClass).html(data.scheme);
             this.$find('.' + constants.schemeClass).attr('href', this.getUrl(data));
-        },
-
-        /**
-         * Bind necessary aura events.
-         */
-        bindCustomEvents: function() {
-            this.sandbox.on(
-                'husky.dropdown.' + this.options.instanceName + '.item.click',
-                this.selectSchemeHandler.bind(this)
-            );
         },
 
         /**
@@ -46967,7 +47028,7 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
         }
     });
 
-    define('husky_extensions/ckeditor-extension',['ckeditor', 'jqueryAdapter'], function() {
+    define('husky_extensions/ckeditor-extension',['underscore', 'services/husky/util', 'ckeditor', 'jqueryAdapter'], function(_, Util) {
 
         var getConfig = function() {
             return {
@@ -46977,13 +47038,71 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
                 removeButtons: '',
                 removePlugins: 'elementspath,magicline',
                 removeDialogTabs: 'image:advanced;link:advanced',
-                extraPlugins: 'justify,format,sourcearea,link,table,pastefromword,autogrow',
-                extraAllowedContent: 'img(*)[*]; span(*)[*]; div(*)[*]',
+                allowedContent: true,
                 resize_enabled: false,
                 enterMode: 'P',
                 uiColor: '#ffffff',
                 skin: 'husky'
             };
+        };
+
+        /**
+         * Builder to extend basic toolbar.
+         *
+         * @param toolbar
+         *
+         * @constructor
+         */
+        function ToolbarBuilder(toolbar) {
+            this.toolbar = toolbar;
+        }
+
+        /**
+         * Add toolbar items.
+         *
+         * @param {String} name
+         * @param {String[]} items
+         */
+        ToolbarBuilder.prototype.add = function(name, items) {
+            if (!this.toolbar[name]) {
+                this.toolbar[name] = [];
+            }
+
+            this.toolbar[name] = this.toolbar[name].concat(items);
+        };
+
+        /**
+         * Remove toolbar items.
+         *
+         * @param {String} name
+         * @param {String[]} items
+         */
+        ToolbarBuilder.prototype.remove = function(name, items) {
+            if (!this.toolbar[name]) {
+                this.toolbar[name] = [];
+            }
+
+            this.toolbar[name] = _.difference(this.toolbar[name], items);
+        };
+
+        /**
+         * Returns toolbar.
+         *
+         * @returns {{name, items}[]}
+         */
+        ToolbarBuilder.prototype.get = function() {
+            return _.map(this.toolbar, function(items, name) {
+                return {name: name, items: items};
+            });
+        };
+
+        /**
+         * Returns raw toolbar data.
+         *
+         * @returns {Object}
+         */
+        ToolbarBuilder.getRaw = function() {
+            return this.toolbar;
         };
 
         return {
@@ -46992,13 +47111,82 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
 
             initialize: function(app) {
 
+                var toolbar = {
+                        semantics: ['Format'],
+                        basicstyles: ['Superscript', 'Subscript', 'Italic', 'Bold', 'Underline', 'Strike'],
+                        blockstyles: ['JustifyLeft', 'JustifyCenter', 'JustifyRight', 'JustifyBlock'],
+                        list: ['NumberedList', 'BulletedList'],
+                        paste: ['PasteFromWord'],
+                        links: ['Link', 'Unlink'],
+                        insert: ['Table'],
+                        styles: ['Styles'],
+                        code: ['Source']
+                    },
+                    plugins = ['justify', 'format', 'sourcearea', 'link', 'table', 'pastefromword', 'autogrow'],
+                    icons = {
+                        Format: 'font',
+                        Strike: 'strikethrough',
+                        JustifyLeft: 'align-left',
+                        JustifyCenter: 'align-center',
+                        JustifyRight: 'align-right',
+                        JustifyBlock: 'align-justify',
+                        NumberedList: 'list-ol',
+                        BulletedList: 'list',
+                        PasteFromWord: 'file-word-o',
+                        Styles: 'header',
+                        Source: 'code'
+                    };
+
                 app.sandbox.ckeditor = {
+
+                    addPlugin: function(name, plugin) {
+                        plugins.push(name);
+
+                        CKEDITOR.plugins.add(name, plugin);
+                    },
+
+                    addToolbarButton: function(toolbarName, button, icon) {
+                        if (!toolbar[toolbarName]) {
+                            toolbar[toolbarName] = [];
+                        }
+
+                        toolbar[toolbarName].push(button);
+
+                        if (!!icon) {
+                            icons[button] = icon;
+                        }
+                    },
+
+                    getToolbar: function() {
+                        return Util.deepCopy(toolbar);
+                    },
+
+                    getIcon: function(button) {
+                        if (icons.hasOwnProperty(button)) {
+                            return icons[button];
+                        }
+
+                        return button.toLowerCase();
+                    },
+
+                    getToolbarBuilder: function() {
+                        return new ToolbarBuilder(this.getToolbar());
+                    },
+
+                    createToolbarBuilder: function(toolbar) {
+                        var toolbarSections = {};
+                        for (var i = 0, length = toolbar.length; i < length; ++i) {
+                            toolbarSections[toolbar[i].name] = toolbar[i].items;
+                        }
+
+                        return new ToolbarBuilder(toolbarSections);
+                    },
 
                     // callback when editor is ready
                     init: function(selector, callback, config) {
+                        var configuration = app.sandbox.util.extend(true, {}, getConfig.call(), config), $editor;
+                        configuration.extraPlugins = plugins.join(',');
 
-                        var configuration = app.sandbox.util.extend(true, {}, getConfig.call(), config),
-                            $editor;
                         if (!!callback && typeof callback === 'function') {
                             $editor = $(selector).ckeditor(callback, configuration);
                         } else {
@@ -47072,8 +47260,6 @@ define('__component__$url-input@husky',['services/husky/url-validator'], functio
             }
 
         };
-
-
     });
 })();
 
@@ -50914,12 +51100,25 @@ define("datepicker-zh-TW", function(){});
     });
 
     define('husky_extensions/globalize',['globalize_lib'], function() {
+        var normalizeCultureName = function(cultureName) {
+            cultureName = cultureName.replace('_', '-');
+
+            if (cultureName.indexOf('-') > -1) {
+                cultureName =
+                    cultureName.substring(0, cultureName.indexOf('-')) +
+                    cultureName.substring(cultureName.indexOf('-'), cultureName.length).toUpperCase();
+            }
+
+            return cultureName;
+        };
+
         return  {
             name: 'husky-validation',
 
             initialize: function(app) {
                 app.sandbox.globalize = {
                     addCultureInfo: function(cultureName, messages) {
+                        cultureName = normalizeCultureName(cultureName);
                         Globalize.addCultureInfo(cultureName, {
                             messages: messages
                         });
@@ -50941,12 +51140,12 @@ define("datepicker-zh-TW", function(){});
 
                 app.sandbox.translate = function(key) {
                     var translation;
-                    if (!app.config.culture || !app.config.culture.name) {
+                    if (!app.config.culture || !Globalize.culture().name) {
                         return key;
                     }
 
                     try {
-                        translation = Globalize.localize(key, app.config.culture.name);
+                        translation = Globalize.localize(key, Globalize.culture().name);
                     } catch (e) {
                         app.logger.warn('Globalize threw an error when translating key "' + key + '", failling back to key. Error: ' + e);
                         return key;
@@ -51064,15 +51263,17 @@ define("datepicker-zh-TW", function(){});
                  * @param defaultMessages will be used as fallback messages
                  */
                 app.setLanguage = function(cultureName, messages, defaultMessages) {
+                    cultureName = normalizeCultureName(cultureName);
+
+                    if (cultureName !== 'en') {
+                        require(['cultures/globalize.culture.' + cultureName]);
+                    }
+
                     Globalize.culture(cultureName);
 
                     app.sandbox.globalize.addCultureInfo(cultureName, messages);
                     app.sandbox.globalize.addCultureInfo('default', defaultMessages);
                 };
-
-                if (!!app.config.culture && !!app.config.culture.name && app.config.culture.name !== 'en') {
-                    return require(['cultures/globalize.culture.' + app.config.culture.name]);
-                }
             },
 
             afterAppStart: function(app) {

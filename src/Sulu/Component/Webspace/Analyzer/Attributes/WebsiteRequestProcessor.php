@@ -20,7 +20,7 @@ use Symfony\Component\HttpFoundation\Request;
 /**
  * Extracts attributes from request for the sulu-website.
  */
-class WebsiteRequestProcessor extends AbstractRequestProcessor
+class WebsiteRequestProcessor implements RequestProcessorInterface
 {
     /**
      * @var WebspaceManagerInterface
@@ -80,6 +80,10 @@ class WebsiteRequestProcessor extends AbstractRequestProcessor
         usort(
             $portalInformations,
             function (PortalInformation $a, PortalInformation $b) {
+                if ($a->getPriority() === $b->getPriority()) {
+                    return strlen($a->getUrl()) < strlen($b->getUrl());
+                }
+
                 return $a->getPriority() < $b->getPriority();
             }
         );
@@ -87,11 +91,7 @@ class WebsiteRequestProcessor extends AbstractRequestProcessor
         /** @var PortalInformation $portalInformation */
         $portalInformation = reset($portalInformations);
 
-        return $this->processPortalInformation(
-            $request,
-            $portalInformation,
-            ['urlExpression' => $portalInformation->getUrlExpression()]
-        );
+        return new RequestAttributes(['portalInformation' => $portalInformation]);
     }
 
     /**

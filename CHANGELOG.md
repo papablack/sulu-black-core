@@ -1,6 +1,88 @@
 CHANGELOG for Sulu
 ==================
 
+* dev-develop
+    * BUGFIX      #2426 [RouteBundle]         Fixed route-provider when no resource-locator prefix isset
+    * BUGFIX      #2418 [ContentBundle]       Removed ContentMapperRequest
+    * ENHANCEMENT #2414 [ContentBundle]       Removed save method of ContentMapper
+    * BUGFIX      #2367 [ContentBundle]       Fixed copy internal-link into new language
+    * BUGFIX      #2396                       Fixed composer-events
+    * ENHANCEMENT #2403 [ContentBundle]       Added lazy start of ckeditor for content form
+    * BUGFIX      #2396 [PreviewBundle]       Fixed leaking events of preview
+    * BUGFIX      #2389 [MediaBundle]         Removed twice adding of navigation item
+    * ENHANCEMENT #2386 [ContentBundle]       Use DocumentManager for NodeController postAction
+    * BUGFIX      #2325 [WebsiteBundle]       Fixed a query issue on Postgresql
+    * BUGFIX      #2379 [MediaBundle]         Inject CategoryRepository in MediaManager to avoid using removed constant
+    * BUGFIX      #2370 [TestBundle]          Use Doctrine DBAL as default PHPCR-Backend
+    * BUGFIX      #2369 [All]                 Install the symfony phpunit bridge again
+    * ENHANCEMENT #2356 [PreviewBundle]       Added default error message 
+    * BUGFIX      #2354 [ContentBundle]       Fixed javascript error preview is null for new page form 
+    * FEATURE     #2336 [ContentBundle]       Enabled internal link in ckeditor
+    * ENHANCEMENT #2338 [MarkupBundle]        Implemented markup bundle
+    * FEATURE     #2333 [PreviewBundle]       Added preview render error templates 
+    * ENHANCEMENT #2353 [WebsocketBundle]     Changed configuration to default disable websocket 
+    * BUGFIX      #2351 [ContentBundle]       Removed strange condition for data-changed 
+    * BUGFIX      #2352 [CoreBundle]          Fixed RequestAnalyzer for use with ESI
+    * FEATURE     #2349 [RouteBundle]         Added route-bundle 
+    * FEATURE     #2299 [PreviewBundle]       Implemented preview bundle 
+    * ENHANCEMENT #2289 [ContentBundle]       Added display options support to date content type
+    * ENHANCEMENT #2316 [Symfony]             Added collector compiler pass
+    * ENHANCEMENT #2279 [Webspace]            Do not hide invalid webspace exceptions
+    * ENHANCEMENT #2288 [WebsiteBundle]       Fixed overriding request attributes and set them on the request
+    * BUGFIX      #2288 [AdminBundle]         Removed deleting of entire dom tree on tab change
+    * ENHANCEMENT #2278 [TestBundle]          Cache result of Sulu intitializer rather than using a fixture
+    * BUGFIX      #2305 [WebsiteBundle]       Fixed handling of non-default formats in error pages
+    * ENHANCEMENT #2341 [MediaBundle]         Added category to medias
+    * ENHANCEMENT #2323 [WebsiteBundle]       Added TWIG-Extension to check if parent nav-item is active
+    * ENHANCEMENT #2377 [CoreBundle]          Made --router and --env optional when running the console commands server:run, server:start, server:stop and server:status
+
+* 1.2.3 (2016-06-01)
+    * HOTFIX      #2427 [Hash]                Fixed bug when using non generic visitor in HashSerializeEventSubscriber
+    * HOTFIX      #2401 [MediaBundle]         Fixed slow media queries
+    * HOTFIX      #2415 [ContactBundle]       Fixed account contacts api response
+    * HOTFIX      #2401 [MediaBundle]         Fixed search in media bundle
+    * HOTFIX      #2381 [ContentBundle]       Fixed auto-name subscriber to rename at the very end of persist
+    * HOTFIX      #2388 [Rest]                Fixed bug when applying same sortfield multiple times
+    * HOTFIX      #2378 [ContentBundle]       Fixed writing security to page documents
+    * HOTFIX      #2376 [ContentBundle]       Added cleanup for structure reindex provider
+    * HOTFIX      #2382 [ResourceBundle]      Added column definitions to resource-bundle
+    * HOTFIX      #2384 [WebsiteBundle]       Added condition to custom-routes to match only full-matches
+
+* 1.2.2 (2016-05-09)
+    * HOTFIX      #2375 [SecurityBundle]      Fixed visibility of entries in language dropdown
+    * ENHANCEMENT #2373 [MediaBundle]         Added batch indexing for medias
+    * HOTFIX      #2371 [MediaBundle]         Fixed appveyor tests for collections
+    * HOTFIX      #2365                       Fixed missing and wrong method mocks
+    * ENHANCEMENT #2359 [MediaBundle]         Added ability to sort medias
+    * HOTFIX      #2368 [ContentBundle]       Fixed copying shadow properties
+    * HOTFIX      #2362 [Website]             Fixed hreflang-tag for homepage
+    * BUGFIX      #2364 [CoreBundle]          DependencyInjection: Throw exception when locales/translations are misconfigured
+    * BUGFIX      #2364 [ResourceBundle]      Moved fixtures from de_CH to de_ch
+    * HOTFIX      #2363 [WebsiteBundle]       Fixed sulu-content-path for webspaces with different domains for locales
+    * ENHANCEMENT #2346 [ResourceBundle]      Added fixtures for de_CH
+    * ENHANCEMENT #2346 [AdminBundle]         Use always users locale for globalize culture
+    * HOTFIX      #2347 [ContentBundle]       Fixed ghost children loading
+
+* 1.2.1 (2016-04-27)
+    * HOTFIX      #2340 [ContactBundle]       Fixed listing of contacts with Sulu user
+    * HOTFIX      #2334 [ContactBundle]       Fixed account-contact search
+    * HOTFIX      #2335 [ContentBundle]       Fixed textarea vertical resize
+    * HOTFIX      #2331 [AdminBundle]         Fixed admin-controller to return correct system
+    * HOTFIX      #2330 [WebsiteBundle]       Removed lazy analyzing of the request
+    * HOTFIX      #2321 [WebsiteBundle]       Fixed request-analyze for not existing current request
+    * HOTFIX      #2324 [SecurityBundle]      Removed circular reference from website security
+    * HOTFIX      #2319 [ContactBundle]       Validate unknown vat-number as valid
+    * HOTFIX      #2306 [WebsiteBundle]       Fixed partial rendering using query parameter
+    * HOTFIX      #2312 [Rest]                Added security checks to DoctrineListBuilder
+    * HOTFIX      #2303 [ContactBundle]       Fixed contact media search
+    * HOTFIX      #2304 [ContactBundle]       Fixed styling of options dropdown and fixed url-input dropdown
+    * HOTFIX      #2290 [WebsiteBundle]       Fixed redirect urls for webspace
+    * HOTFIX      #2294 [WebsiteBundle]       Fixed detecting webspaces for URLs with same priority
+    * HOTFIX      #2294 [WebsiteBundle]       Fixed analytics with all domains only in created webspace
+    * HOTFIX      #2285 [SecurityBundle]      Made ResettingController translations more configurable
+    * HOTFIX      #2291 [ContentBundle]       Fixed wrong spacing between more than two checkboxes
+    * ENHANCEMENT #2288 [WebsiteBundle]       Fixed overriding request attributes and set them on the request
+
 * 1.2.0 (2016-04-11)
     * BUGFIX      #2280 [ContentBundle]       Removed scrollbar from categories in overlay
     * BUGFIX      #2281 [ContentBundle]       Use correct link for content tab in page form
@@ -157,6 +239,9 @@ CHANGELOG for Sulu
     * BUGFIX      #1871 [ContentBundle]       Fixed url-generation and save button
     * BUGFIX      #1873 [ContactBundle]       Fixed remove title and position
     * BUGFIX      #1873 [ContactBundle]       Fixed remove contact birthday
+
+* 1.1.12 (2016-04-26)
+    * HOTFIX      #2285 [SecurityBundle]    Made ResettingController translations more configurable
 
 * 1.1.11 (2016-04-04)
     * HOTFIX      #2143 [ContactBundle]     Fixed account cget filtering of ids

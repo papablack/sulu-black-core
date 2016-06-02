@@ -7,7 +7,7 @@
  * with this source code in the file LICENSE.
  */
 
-define(['app-config', 'config', 'sulucontent/components/content/preview/main'], function(AppConfig, Config, Preview) {
+define(['app-config', 'config', 'services/sulupreview/preview'], function(AppConfig, Config, Preview) {
 
     'use strict';
 
@@ -37,7 +37,6 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
         initialize: function() {
             this.sandbox.emit('husky.toolbar.header.item.enable', 'template', false);
 
-            this.preview = new Preview();
             this.dfdListenForResourceLocator = $.Deferred();
 
             this.add = true;
@@ -82,10 +81,11 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
             this.sandbox.emit('sulu.content.contents.get-data', this.render.bind(this));
         },
 
-        render: function(data) {
+        render: function(data, preview) {
             this.bindCustomEvents();
             this.listenForChange();
 
+            this.preview = preview;
             this.data = data;
             if (!!this.data.id) {
                 // the form is in edit mode, if and ID is given, and therefore the page has already existed
@@ -183,6 +183,10 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                 this.initializeResourceLocator();
                 this.changeTemplateDropdownHandler();
 
+                if (!!this.preview) {
+                    this.preview.bindDomEvents(this.$el);
+                }
+
                 if (!!Config.has('sulu-collaboration')) {
                     this.startCollaborationComponent();
                 }
@@ -197,19 +201,21 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                 this.createConfiguration(this.formId);
 
                 this.setFormData(data).then(function() {
-                    this.sandbox.start(this.$el, {reset: true});
+                    this.sandbox.start(this.$el, {reset: true}).then(function(){
+                        this.initSortableBlock();
+                        this.bindFormEvents();
 
-                    this.initSortableBlock();
-                    this.bindFormEvents();
-
-                    // FIXME getData errors because type is not loaded ... after change template
-                    // need a fix in validation
-                    setTimeout(function() {
                         var data = this.sandbox.form.getData(this.formId);
-                        this.sandbox.emit('sulu.preview.initialize', data, true);
-                    }.bind(this), 10);
 
-                    dfd.resolve();
+                        this.sandbox.emit('sulu.content.initialized', data);
+                        dfd.resolve();
+
+                        if (!this.preview) {
+                            return;
+                        }
+
+                        this.preview.updateContext({template: this.template}, data);
+                    }.bind(this));
                 }.bind(this));
             }.bind(this));
 
@@ -279,7 +285,9 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                     var changes = this.sandbox.form.getData(this.formId),
                         propertyName = this.sandbox.dom.data(event.currentTarget, 'mapperProperty');
 
-                    this.sandbox.emit('sulu.preview.update-property', propertyName, changes[propertyName]);
+                    if (!!this.preview) {
+                        this.preview.updateProperty(propertyName, changes[propertyName]);
+                    }
                     this.sandbox.emit('sulu.content.changed');
                 }.bind(this));
             }
@@ -290,7 +298,10 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                 // TODO removed elements remove from config
                 var changes = this.sandbox.form.getData(this.formId);
                 this.initSortableBlock();
-                this.sandbox.emit('sulu.preview.update-property', propertyName, changes[propertyName]);
+
+                if (!!this.preview) {
+                    this.preview.updateProperty(propertyName, changes[propertyName]);
+                }
                 this.setHeaderBar(false);
             }.bind(this));
 
@@ -307,7 +318,10 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                 // update changes
                 try {
                     changes = this.sandbox.form.getData(this.formId);
-                    this.sandbox.emit('sulu.preview.update-property', propertyName, changes[propertyName]);
+
+                    if (!!this.preview) {
+                        this.preview.updateProperty(propertyName, changes[propertyName]);
+                    }
                 } catch (ex) {
                     // ignore exceptions
                 }
@@ -400,7 +414,7 @@ define(['app-config', 'config', 'sulucontent/components/content/preview/main'], 
                     sequence;
 
                 if (value !== '') {
-                    sequence = this.preview.getSequence(property.$el, this.sandbox);
+                    sequence = Preview.getSequence(property.$el);
                     if (!!sequence) {
                         parts[sequence] = value;
                     }

@@ -391,6 +391,116 @@ class AccountControllerTest extends SuluTestCase
         $this->assertCount(0, $response->_embedded->contacts);
     }
 
+    public function testGetAccountContacts()
+    {
+        $account = new Account();
+        $account->setName('test');
+        $this->em->persist($account);
+
+        $account2 = new Account();
+        $account2->setName('test2');
+        $this->em->persist($account2);
+
+        $contact = new Contact();
+        $contact->setFirstName('Max');
+        $contact->setLastName('Mustermann');
+        $contact->setFormOfAddress(0);
+        $this->em->persist($contact);
+
+        $accountContact = new AccountContact();
+        $accountContact->setContact($contact);
+        $accountContact->setAccount($account);
+        $accountContact->setMain(true);
+        $account->addAccountContact($accountContact);
+        $this->em->persist($accountContact);
+
+        $accountContact2 = new AccountContact();
+        $accountContact2->setContact($contact);
+        $accountContact2->setAccount($account2);
+        $accountContact2->setMain(false);
+        $account2->addAccountContact($accountContact2);
+        $this->em->persist($accountContact2);
+
+        $contact = new Contact();
+        $contact->setFirstName('Erika');
+        $contact->setLastName('Mustermann');
+        $contact->setFormOfAddress(1);
+        $this->em->persist($contact);
+
+        $accountContact = new AccountContact();
+        $accountContact->setContact($contact);
+        $accountContact->setAccount($account);
+        $account->addAccountContact($accountContact);
+        $accountContact->setMain(false);
+        $this->em->persist($accountContact);
+
+        $this->em->flush();
+
+        $client = $this->createAuthenticatedClient();
+        $client->request(
+            'GET',
+            '/api/accounts/' . $account->getId() . '/contacts?flat=true&fields=firstName&sortBy=firstName'
+        );
+
+        $response = json_decode($client->getResponse()->getContent(), true);
+        $this->assertHttpStatusCode(200, $client->getResponse());
+
+        $this->assertEquals(2, $response['total']);
+        $this->assertCount(2, $response['_embedded']['contacts']);
+
+        $this->assertEquals('Erika', $response['_embedded']['contacts'][0]['firstName']);
+        $this->assertEquals('Max', $response['_embedded']['contacts'][1]['firstName']);
+    }
+
+    public function testGetAccountContactsSearch()
+    {
+        $account = new Account();
+        $account->setName('test');
+        $this->em->persist($account);
+
+        $contact = new Contact();
+        $contact->setFirstName('Max');
+        $contact->setLastName('Mustermann');
+        $contact->setFormOfAddress(0);
+        $this->em->persist($contact);
+
+        $accountContact = new AccountContact();
+        $accountContact->setContact($contact);
+        $accountContact->setAccount($account);
+        $accountContact->setMain(true);
+        $account->addAccountContact($accountContact);
+        $this->em->persist($accountContact);
+
+        $contact = new Contact();
+        $contact->setFirstName('Erika');
+        $contact->setLastName('Mustermann');
+        $contact->setFormOfAddress(1);
+        $this->em->persist($contact);
+
+        $accountContact = new AccountContact();
+        $accountContact->setContact($contact);
+        $accountContact->setAccount($account);
+        $account->addAccountContact($accountContact);
+        $accountContact->setMain(false);
+        $this->em->persist($accountContact);
+
+        $this->em->flush();
+
+        $client = $this->createAuthenticatedClient();
+        $client->request(
+            'GET',
+            '/api/accounts/' . $account->getId() . '/contacts?search=Max&searchFields=fullName&flat=true&fields=fullName'
+        );
+
+        $response = json_decode($client->getResponse()->getContent(), true);
+        $this->assertHttpStatusCode(200, $client->getResponse());
+
+        $this->assertEquals(1, $response['total']);
+        $this->assertCount(1, $response['_embedded']['contacts']);
+
+        $this->assertEquals('Max Mustermann', $response['_embedded']['contacts'][0]['fullName']);
+    }
+
     public function testPost()
     {
         $client = $this->createAuthenticatedClient();

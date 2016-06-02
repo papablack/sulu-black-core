@@ -213,8 +213,15 @@ class ContentRepositoryTest extends SuluTestCase
 
         $this->assertCount(3, $result);
 
+        $this->assertEquals('de', $result[0]->getLocale());
         $this->assertEquals('test-1', $result[0]['title']);
+        $this->assertEquals('ghost', $result[0]->getLocalizationType()->getName());
+        $this->assertEquals('en', $result[0]->getLocalizationType()->getValue());
+        $this->assertEquals('de', $result[1]->getLocale());
+        $this->assertNull($result[1]->getLocalizationType());
         $this->assertEquals('test-2', $result[1]['title']);
+        $this->assertEquals('de', $result[2]->getLocale());
+        $this->assertNull($result[2]->getLocalizationType());
         $this->assertEquals('test-3', $result[2]['title']);
     }
 
@@ -691,7 +698,17 @@ class ContentRepositoryTest extends SuluTestCase
         $user = $this->prophesize(UserInterface::class);
         $user->getRoleObjects()->willReturn([$role1->reveal(), $role2->reveal()]);
 
-        $page = $this->createPage('test-1', 'de', [], null, [1 => 'edit', 2 => 'view archive', 3 => 'add']);
+        $page = $this->createPage(
+            'test-1',
+            'de',
+            [],
+            null,
+            [
+                1 => ['edit' => true],
+                2 => ['view' => true, 'archive' => true],
+                3 => ['add' => true],
+            ]
+        );
 
         $result = $this->contentRepository->find(
             $page->getUuid(),
@@ -707,7 +724,15 @@ class ContentRepositoryTest extends SuluTestCase
         );
     }
 
-    public function testFindParentsWithSiblingsByUuid()
+    public function provideWebspaceKeys()
+    {
+        return [['sulu_io'], ['test_io']];
+    }
+
+    /**
+     * @dataProvider provideWebspaceKeys
+     */
+    public function testFindParentsWithSiblingsByUuid($webspaceKey)
     {
         $this->initPhpcr();
 
@@ -728,7 +753,7 @@ class ContentRepositoryTest extends SuluTestCase
         $result = $this->contentRepository->findParentsWithSiblingsByUuid(
             $page10->getUuid(),
             'de',
-            'sulu_io',
+            $webspaceKey,
             MappingBuilder::create()->getMapping()
         );
 
@@ -898,14 +923,18 @@ class ContentRepositoryTest extends SuluTestCase
             MappingBuilder::create()->setResolveUrl(true)->getMapping()
         );
 
+        usort($result, function ($content1, $content2) {
+            return strcmp($content1->getPath(), $content2->getPath());
+        });
+
         $this->assertCount(2, $result);
-        $urls = $result[0]->getUrls();
+        $urls = $result[1]->getUrls();
         $this->assertEquals('/test-1', $urls['de_at']);
         $this->assertNull($urls['de']);
         $this->assertNull($urls['en']);
         $this->assertNull($urls['en_us']);
 
-        $urls = $result[1]->getUrls();
+        $urls = $result[0]->getUrls();
         $this->assertEquals('/', $urls['de_at']);
         $this->assertEquals('/', $urls['de']);
         $this->assertEquals('/', $urls['en']);
@@ -1064,6 +1093,7 @@ class ContentRepositoryTest extends SuluTestCase
             ['load_ghost_content' => false]
         );
 
+        $document->setWorkflowStage(WorkflowStage::PUBLISHED);
         $document->setShadowLocaleEnabled(true);
         $document->setTitle(strrev($title));
         $document->setShadowLocale($locale);
@@ -1088,6 +1118,7 @@ class ContentRepositoryTest extends SuluTestCase
         $document->setResourceSegment($data['url']);
         $document->setLocale($locale);
         $document->setRedirectType(RedirectType::INTERNAL);
+        $document->setWorkflowStage(WorkflowStage::PUBLISHED);
         $document->setRedirectTarget($link);
         $document->getStructure()->bind($data);
         $this->documentManager->persist(
