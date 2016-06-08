@@ -2,12 +2,18 @@ CHANGELOG for Sulu
 ==================
 
 * dev-develop
+    * BUGFIX      #2455 [CoreBundle]          Fixed ServerStatusCommand for Symfony 2.8.7
+    * BUGFIX      #2443 [WebsiteBundle]       Added portal check for portal-routes
+    * FEATURE     #2424 [Content]             Add support for XInclude
+    * BUGFIX      #2439 [ContentBundle]       Fixed tab visibility for create new page localization
+    * ENHANCEMENT #2428 [Content]             Removed move and copy method from ContentMapper
     * BUGFIX      #2426 [RouteBundle]         Fixed route-provider when no resource-locator prefix isset
     * BUGFIX      #2418 [ContentBundle]       Removed ContentMapperRequest
     * ENHANCEMENT #2414 [ContentBundle]       Removed save method of ContentMapper
     * BUGFIX      #2367 [ContentBundle]       Fixed copy internal-link into new language
     * BUGFIX      #2396                       Fixed composer-events
     * ENHANCEMENT #2403 [ContentBundle]       Added lazy start of ckeditor for content form
+    * BUGFIX      #2397 [PreviewBundle]       Added catching of "Unable to find template" exception
     * BUGFIX      #2396 [PreviewBundle]       Fixed leaking events of preview
     * BUGFIX      #2389 [MediaBundle]         Removed twice adding of navigation item
     * ENHANCEMENT #2386 [ContentBundle]       Use DocumentManager for NodeController postAction

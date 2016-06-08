@@ -291,6 +291,35 @@ class CustomUrlControllerTest extends SuluTestCase
             ],
             [
                 [
+                    'test-11.sulu.io/test-21' => [
+                        'title' => 'Test-1',
+                        'published' => true,
+                        'baseDomain' => '*.sulu.io',
+                        'domainParts' => ['prefix' => 'test-11', 'suffix' => ['test-21']],
+                        'targetDocument' => true,
+                        'targetLocale' => 'de',
+                        'canonical' => true,
+                        'redirect' => true,
+                        'noFollow' => true,
+                        'noIndex' => true,
+                    ],
+                ],
+                [
+                    'title' => 'Test-2',
+                    'published' => true,
+                    'baseDomain' => '*.sulu.io',
+                    'domainParts' => ['prefix' => 'test-12', 'suffix' => ['test-22']],
+                    'targetDocument' => true,
+                    'targetLocale' => 'de',
+                    'canonical' => true,
+                    'redirect' => true,
+                    'noFollow' => true,
+                    'noIndex' => true,
+                ],
+                'test-12.sulu.io/test-22',
+            ],
+            [
+                [
                     'test-1.sulu.io/test-1' => [
                         'title' => 'Test-1',
                         'published' => true,
@@ -641,6 +670,7 @@ class CustomUrlControllerTest extends SuluTestCase
 
         $client = $this->createAuthenticatedClient();
         $client->request('GET', '/api/webspaces/sulu_io/custom-urls');
+        $requestTime = new \DateTime();
 
         $response = $client->getResponse();
         $responseDataComplete = json_decode($response->getContent(), true);
@@ -659,8 +689,8 @@ class CustomUrlControllerTest extends SuluTestCase
             $this->assertArrayHasKey('creator', $responseData);
             $this->assertArrayHasKey('changer', $responseData);
 
-            $this->assertEquals(new \DateTime(), new \DateTime($responseData['created']), '', 2);
-            $this->assertEquals(new \DateTime(), new \DateTime($responseData['changed']), '', 2);
+            $this->assertEquals($requestTime, new \DateTime($responseData['created']), '', 2);
+            $this->assertEquals($requestTime, new \DateTime($responseData['changed']), '', 2);
             if (array_key_exists('targetDocument', $data)) {
                 $this->assertEquals('Homepage', $responseData['targetTitle']);
             } else {
